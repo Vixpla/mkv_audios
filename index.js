@@ -2,20 +2,12 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { URL } from 'node:url';
 
-// Importar las rutas locales de los binarios instalados por NPM
-import ffmpegPath from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
-
-const ffprobePath = ffprobeStatic.path;
 const PORT = process.env.PORT || 3000;
 
-/**
- * Obtiene el índice del stream de audio en español/latino.
- */
 function getSpanishAudioTrackIndex(videoUrl) {
   return new Promise((resolve) => {
-    // Usar la ruta del ffprobe del node_module
-    const ffprobe = spawn(ffprobePath, [
+    // Apunta directamente al binario 'ffprobe' instalado en Linux/Docker
+    const ffprobe = spawn('ffprobe', [
       '-v', 'quiet',
       '-print_format', 'json',
       '-show_streams',
@@ -33,7 +25,7 @@ function getSpanishAudioTrackIndex(videoUrl) {
         const audioStreams = (metadata.streams || []).filter(s => s.codec_type === 'audio');
         if (audioStreams.length === 0) return resolve(0);
 
-        const spanishKeywords = ['spa', 'es', 'spanish', 'lat', 'es-419', 'es-la', 'espanol','Latin','Español'];
+        const spanishKeywords = ['spa', 'es', 'spanish', 'lat', 'es-419', 'es-la', 'espanol'];
         
         const spanishTrack = audioStreams.find(stream => {
           const lang = (stream.tags?.language || '').toLowerCase();
@@ -55,9 +47,6 @@ function getSpanishAudioTrackIndex(videoUrl) {
   });
 }
 
-/**
- * Servidor HTTP
- */
 const server = http.createServer(async (req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
 
@@ -80,8 +69,8 @@ const server = http.createServer(async (req, res) => {
         'Accept-Ranges': 'none'
       });
 
-      // Usar la ruta del ffmpeg del node_module
-      const ffmpeg = spawn(ffmpegPath, [
+      // Apunta directamente al binario 'ffmpeg' del sistema
+      const ffmpeg = spawn('ffmpeg', [
         '-reconnect', '1',
         '-reconnect_streamed', '1',
         '-reconnect_delay_max', '5',
@@ -95,7 +84,7 @@ const server = http.createServer(async (req, res) => {
       ]);
 
       ffmpeg.stdout.pipe(res);
-      ffmpeg.stderr.on('data', () => {}); // Silenciar logs para evitar bloqueos
+      ffmpeg.stderr.on('data', () => {});
 
       req.on('close', () => {
         if (!ffmpeg.killed) {
@@ -124,5 +113,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Servidor de audio activo en http://localhost:${PORT}`);
+  console.log(`Servidor de audio activo en puerto ${PORT}`);
 });
